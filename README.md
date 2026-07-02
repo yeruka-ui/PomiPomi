@@ -1,5 +1,5 @@
-# PomiPomi
-
+# 🌸 PomiPomi
+## Hi, I'm PomiPomi! Let's get _pomictive_! 🌸 
 A tiny pixel-art desk companion: a home clock face, a Pomodoro timer, and a quick countdown timer, all on a small SPI TFT display driven by an ESP32.
 
 ## Hardware
