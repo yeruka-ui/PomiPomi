@@ -164,7 +164,11 @@ void setup() {
   pinMode(CLK_PIN, INPUT);
   pinMode(DT_PIN, INPUT);
   pinMode(SW_PIN, INPUT_PULLUP);
-  ledcAttach(BUZZ_PIN, 2000, 8);
+
+  // Active buzzer module is low-level trigger: LOW = beep, HIGH = silent
+  pinMode(BUZZ_PIN, OUTPUT);
+  digitalWrite(BUZZ_PIN, HIGH); // start silent
+
   lastCLK = digitalRead(CLK_PIN);
 
   tft.init();
@@ -354,6 +358,7 @@ void handleButton() {
 }
 
 void handleShortPress() {
+  beepOnce();
   unsigned long now = millis();
 
   // --- FACE MODE: triple click detection ---
@@ -538,13 +543,21 @@ void handleLongPress() {
 }
 
 // ==================== BUZZER ====================
+// Active buzzer, low-level trigger: LOW = beep, HIGH = silent
 void buzzAlert() {
   for (int i = 0; i < 3; i++) {
-    ledcWriteTone(BUZZ_PIN, 3000);
-    delay(400);
-    ledcWriteTone(BUZZ_PIN, 0);
-    delay(200);
+    digitalWrite(BUZZ_PIN, LOW);  // beep
+    delay(150);
+    digitalWrite(BUZZ_PIN, HIGH); // silent
+    delay(100);
   }
+}
+
+// Single short click feedback beep
+void beepOnce() {
+  digitalWrite(BUZZ_PIN, LOW);  // beep
+  delay(60);
+  digitalWrite(BUZZ_PIN, HIGH); // silent
 }
 
 // ==================== HELPERS ====================
