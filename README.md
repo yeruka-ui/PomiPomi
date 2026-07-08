@@ -6,10 +6,10 @@ A tiny pixel-art desk companion: a home clock face, a Pomodoro timer, and a quic
 
 | Component | Detail |
 |---|---|
-| Microcontroller | ESP32 (Arduino core) — uses `WiFi.h`, and the ESP32 `ledc` PWM API (`ledcAttach`/`ledcWriteTone`) for the buzzer |
+| Microcontroller | ESP32 (Arduino core) — uses `WiFi.h` for networking |
 | Display | SPI TFT, 320×240, landscape (`setRotation(1)`), driven via the [TFT_eSPI](https://github.com/Bodmer/TFT_eSPI) library. The exact driver chip/timings are configured in TFT_eSPI's own `User_Setup.h`, not in this sketch. |
 | Rotary encoder | KY-040 style — `CLK` → GPIO34, `DT` → GPIO35, `SW` (push button) → GPIO32 |
-| Buzzer | Passive buzzer on GPIO25, driven via PWM (`ledcAttach(BUZZ_PIN, 2000, 8)`) |
+| Buzzer | Active buzzer module on GPIO25, low-level trigger (`digitalWrite(BUZZ_PIN, LOW)` = beep, `HIGH` = silent) |
 | Network | Onboard WiFi, used for NTP time sync (`pool.ntp.org`) |
 
 ## Setup
