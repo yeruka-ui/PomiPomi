@@ -52,12 +52,13 @@ int pomState = STATE_IDLE;
 int workMinutes = 25;
 int shortBreak  = 5;
 int longBreak   = 15;
-#define SESSIONS_PER_CYCLE 4
+int sessionsPerCycle = 4;
 
 // --- Edit Pomodoro ---
-#define EDIT_WORK  0
-#define EDIT_SHORT 1
-#define EDIT_LONG  2
+#define EDIT_WORK     0
+#define EDIT_SHORT    1
+#define EDIT_LONG     2
+#define EDIT_SESSIONS 3
 int editStep = EDIT_WORK;
 
 // --- Manual Time Override ---
@@ -80,6 +81,9 @@ bool tempIsPM  = false;
 int currentSession = 1;
 int remainingSeconds = 0;
 unsigned long lastTick = 0;
+
+// --- Streak: total completed work sessions since power-on ---
+int sessionStreak = 0;
 
 // --- Pomodoro idle auto-return ---
 #define POM_IDLE_TIMEOUT 15000UL
@@ -245,14 +249,15 @@ void loop() {
         buzzAlert();
 
         if (pomState == STATE_RUNNING) {
+          sessionStreak++;
           pomState = STATE_BREAK;
-          remainingSeconds = (currentSession >= SESSIONS_PER_CYCLE)
+          remainingSeconds = (currentSession >= sessionsPerCycle)
                              ? longBreak * 60 : shortBreak * 60;
           lastTick = millis();
-          drawBreakScreen(currentSession >= SESSIONS_PER_CYCLE);
+          drawBreakScreen(currentSession >= sessionsPerCycle);
 
         } else if (pomState == STATE_BREAK) {
-          if (currentSession >= SESSIONS_PER_CYCLE) {
+          if (currentSession >= sessionsPerCycle) {
             currentSession = 1;
             pomState = STATE_DONE;
             drawDoneScreen();
@@ -267,7 +272,7 @@ void loop() {
 
       } else {
         if (pomState == STATE_RUNNING) drawTimerScreen();
-        else drawBreakScreen(currentSession >= SESSIONS_PER_CYCLE);
+        else drawBreakScreen(currentSession >= sessionsPerCycle);
       }
     }
   }
@@ -296,9 +301,10 @@ void handleEncoder() {
     int delta = (digitalRead(DT_PIN) != currentCLK) ? 1 : -1;
 
     if (appMode == MODE_EDIT_POM) {
-      if (editStep == EDIT_WORK)  workMinutes = constrain(workMinutes + delta, 1, 60);
-      if (editStep == EDIT_SHORT) shortBreak  = constrain(shortBreak  + delta, 1, 30);
-      if (editStep == EDIT_LONG)  longBreak   = constrain(longBreak   + delta, 1, 60);
+      if (editStep == EDIT_WORK)     workMinutes     = constrain(workMinutes + delta, 1, 60);
+      if (editStep == EDIT_SHORT)    shortBreak      = constrain(shortBreak  + delta, 1, 30);
+      if (editStep == EDIT_LONG)     longBreak       = constrain(longBreak   + delta, 1, 60);
+      if (editStep == EDIT_SESSIONS) sessionsPerCycle = constrain(sessionsPerCycle + delta, 1, 12);
       drawEditPomScreen();
     }
 
@@ -413,7 +419,7 @@ void handleShortPress() {
   // --- POMODORO EDIT MODE ---
   if (appMode == MODE_EDIT_POM) {
     editStep++;
-    if (editStep > EDIT_LONG) {
+    if (editStep > EDIT_SESSIONS) {
       editStep = EDIT_WORK;
       appMode = MODE_POMODORO;
       pomState = STATE_IDLE;
@@ -595,11 +601,11 @@ void drawHeartOutline(int cx, int cy, int size, uint16_t color) {
 
 void drawSessionDots(int session) {
   int spacing = 26;
-  int totalW  = SESSIONS_PER_CYCLE * spacing;
+  int totalW  = sessionsPerCycle * spacing;
   int startX  = CX - totalW / 2 + 4;
   int y = 214;
   int heartSize = 8;
-  for (int i = 1; i <= SESSIONS_PER_CYCLE; i++) {
+  for (int i = 1; i <= sessionsPerCycle; i++) {
     int x = startX + (i - 1) * spacing;
     if (i < session)       drawHeart(x, y, heartSize, PINK);
     else if (i == session) drawHeart(x, y, heartSize, TFT_WHITE);
@@ -617,6 +623,16 @@ void drawFaceScreen(bool blinking) {
   char dateBuf[16];
   formatDate(dateBuf);
   printCentered(dateBuf, 30, 1, DARK_PINK);
+
+  // Streak: count of completed pomodoro sessions
+  char streakBuf[6];
+  sprintf(streakBuf, "%d", sessionStreak);
+  int streakTextW = strlen(streakBuf) * 6;
+  int streakStartX = CX - streakTextW / 2;
+  tft.setTextSize(2);
+  tft.setTextColor(PINK, BG);
+  tft.setCursor(streakStartX, 44);
+  tft.print(streakBuf);
 
   if (blinking) {
     tft.fillRect(78,  97, 22, 4, PINK);
@@ -734,23 +750,26 @@ void drawEditPomScreen() {
   printCentered("EDIT TIMERS", 15, 2, PINK);
 
   char buf[30];
-  sprintf(buf, "Work:  %2d min", workMinutes);
-  printCentered(buf, 65, 2, editStep == EDIT_WORK ? TFT_WHITE : DARK_PINK);
+  sprintf(buf, "Work:     %2d min", workMinutes);
+  printCentered(buf, 50, 2, editStep == EDIT_WORK ? TFT_WHITE : DARK_PINK);
 
-  sprintf(buf, "Short: %2d min", shortBreak);
-  printCentered(buf, 105, 2, editStep == EDIT_SHORT ? TFT_WHITE : DARK_PINK);
+  sprintf(buf, "Short:    %2d min", shortBreak);
+  printCentered(buf, 80, 2, editStep == EDIT_SHORT ? TFT_WHITE : DARK_PINK);
 
-  sprintf(buf, "Long:  %2d min", longBreak);
-  printCentered(buf, 145, 2, editStep == EDIT_LONG ? TFT_WHITE : DARK_PINK);
+  sprintf(buf, "Long:     %2d min", longBreak);
+  printCentered(buf, 110, 2, editStep == EDIT_LONG ? TFT_WHITE : DARK_PINK);
 
-  int arrowY = 65 + (editStep * 40);
+  sprintf(buf, "Sessions: %2d", sessionsPerCycle);
+  printCentered(buf, 140, 2, editStep == EDIT_SESSIONS ? TFT_WHITE : DARK_PINK);
+
+  int arrowY = 50 + (editStep * 30);
   tft.setTextColor(PINK, BG);
   tft.setTextSize(2);
   tft.setCursor(30, arrowY);
   tft.print(">");
 
-  printCentered("Rotate to change", 185, 2, PINK);
-  printCentered("Press to confirm & next", 210, 1, DARK_PINK);
+  printCentered("Rotate to change", 175, 2, PINK);
+  printCentered("Press to confirm & next", 200, 1, DARK_PINK);
 }
 
 // ==================== POMODORO SCREENS ====================
@@ -817,7 +836,7 @@ void drawBreakScreen(bool isLong) {
     printCentered("You earned it!", 42, 2, TFT_WHITE);
   } else {
     char sessionLabel[20];
-    sprintf(sessionLabel, "SESSION %d / %d", currentSession, SESSIONS_PER_CYCLE);
+    sprintf(sessionLabel, "SESSION %d / %d", currentSession, sessionsPerCycle);
     printCentered(sessionLabel, 15, 2, PINK);
     printCentered("SHORT BREAK", 42, 2, TFT_WHITE);
   }
